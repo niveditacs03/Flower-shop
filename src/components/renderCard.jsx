@@ -11,16 +11,13 @@ const RenderCard = () => {
     const storedAvailable = localStorage.getItem("availableFlowers");
 
     if (storedAvailable) {
-      // Use the stored available flowers
       setAvailableFlowers(JSON.parse(storedAvailable));
     } else {
-      // Initial setup - store and use the default flowersData
       localStorage.setItem("availableFlowers", JSON.stringify(flowersData));
       setAvailableFlowers(flowersData);
     }
-  }, []); // Empty dependency array ensures this only runs once on mount
+  }, []);
 
-  // Toggle flower in cart using ID
   const toggleCart = (flower) => {
     setCartItems((prev) =>
       prev.some((item) => item.id === flower.id)
@@ -29,7 +26,6 @@ const RenderCard = () => {
     );
   };
 
-  // Checkout logic
   const getTotalPrice = () => {
     const total = cartItems.reduce((sum, flower) => sum + flower.price, 0);
     if (total === 0) {
@@ -37,24 +33,37 @@ const RenderCard = () => {
       return;
     }
 
-    alert(`Total price: ₹${total}`);
+    alert(`Total price: ₹${total.toFixed(2)}`);
 
-    // Remove purchased flowers from available flowers
     const updatedFlowers = availableFlowers.filter(
       (flower) => !cartItems.some((item) => item.id === flower.id)
     );
-    
-    // Update state and localStorage with the new available flowers list
+
     setAvailableFlowers(updatedFlowers);
     localStorage.setItem("availableFlowers", JSON.stringify(updatedFlowers));
 
-    // Clear cart
     setCartItems([]);
+  };
+
+  const resetShop = () => {
+    // Bring back original flowers
+    setAvailableFlowers(flowersData);
+    setCartItems([]);
+    localStorage.setItem("availableFlowers", JSON.stringify(flowersData));
   };
 
   return (
     <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-120">
       <main className="p-8">
+        <div className="flex justify-end mb-6">
+          <button
+            className="bg-pink-500 text-white px-4 py-2 rounded-full shadow hover:bg-red-600 transition-all font-semibold"
+            onClick={resetShop}
+          >
+           Reset Shop
+          </button>
+        </div>
+
         <div className="flex flex-wrap justify-center">
           {availableFlowers.map((flower) => (
             <Card
@@ -70,10 +79,9 @@ const RenderCard = () => {
         </div>
       </main>
 
-      {/* Floating Checkout Button */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
-          className="bg-purple-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-purple-200 hover:text-purple-700 transition-all font-semibold"
+          className="bg-purple-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-blue-400 transition-all font-semibold"
           onClick={getTotalPrice}
         >
           Checkout 🛍️
