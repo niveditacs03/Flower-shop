@@ -1,4 +1,4 @@
-const flowers = [
+const flowersData = [
     {
       id: 1,
       title: "Sunflower",
@@ -61,5 +61,5 @@ const flowers = [
     }
   ];
   
-  export default flowers;
+  export default flowersData;
   

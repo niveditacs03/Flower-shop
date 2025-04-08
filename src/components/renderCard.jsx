@@ -4,40 +4,32 @@ import flowersData from "../data";
 
 const RenderCard = () => {
   const [cartItems, setCartItems] = useState([]);
-  const [availableFlowers, setAvailableFlowers] = useState(flowersData);
+  const [availableFlowers, setAvailableFlowers] = useState([]);
 
-  // Load cart & available flowers from localStorage on mount
+  // Load available flowers from localStorage on initial mount only
   useEffect(() => {
-    const storedCart = localStorage.getItem("cartItems");
     const storedAvailable = localStorage.getItem("availableFlowers");
 
-    if (storedCart) setCartItems(JSON.parse(storedCart));
     if (storedAvailable) {
+      // Use the stored available flowers
       setAvailableFlowers(JSON.parse(storedAvailable));
     } else {
-      // If no localStorage, store initial flowers
+      // Initial setup - store and use the default flowersData
       localStorage.setItem("availableFlowers", JSON.stringify(flowersData));
+      setAvailableFlowers(flowersData);
     }
-  }, []);
+  }, []); // Empty dependency array ensures this only runs once on mount
 
-  // Sync cart to localStorage
-  useEffect(() => {
-    localStorage.setItem("cartItems", JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  // Sync available flowers to localStorage
-  useEffect(() => {
-    localStorage.setItem("availableFlowers", JSON.stringify(availableFlowers));
-  }, [availableFlowers]);
-
+  // Toggle flower in cart using ID
   const toggleCart = (flower) => {
     setCartItems((prev) =>
-      prev.includes(flower)
-        ? prev.filter((item) => item !== flower)
+      prev.some((item) => item.id === flower.id)
+        ? prev.filter((item) => item.id !== flower.id)
         : [...prev, flower]
     );
   };
 
+  // Checkout logic
   const getTotalPrice = () => {
     const total = cartItems.reduce((sum, flower) => sum + flower.price, 0);
     if (total === 0) {
@@ -47,27 +39,28 @@ const RenderCard = () => {
 
     alert(`Total price: ₹${total}`);
 
-    // Remove cart items from available flowers
+    // Remove purchased flowers from available flowers
     const updatedFlowers = availableFlowers.filter(
-      (flower) => !cartItems.includes(flower)
+      (flower) => !cartItems.some((item) => item.id === flower.id)
     );
+    
+    // Update state and localStorage with the new available flowers list
     setAvailableFlowers(updatedFlowers);
     localStorage.setItem("availableFlowers", JSON.stringify(updatedFlowers));
 
     // Clear cart
     setCartItems([]);
-    localStorage.removeItem("cartItems");
   };
 
   return (
     <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-120">
       <main className="p-8">
         <div className="flex flex-wrap justify-center">
-          {availableFlowers.map((flower, idx) => (
+          {availableFlowers.map((flower) => (
             <Card
-              key={idx}
+              key={flower.id}
               {...flower}
-              isAdded={cartItems.includes(flower)}
+              isAdded={cartItems.some((item) => item.id === flower.id)}
               toggleItem={() => toggleCart(flower)}
               handleBuyNow={() =>
                 alert(`Buying "${flower.title}" for ₹${flower.price} 💐💸`)
