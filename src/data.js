@@ -58,6 +58,18 @@ const flowersData = [
       title: "Rose",
       image: "https://plus.unsplash.com/premium_photo-1703689520237-3667a9b43453?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
       price: 20.00
+    },
+    {
+      id:11,
+      title: "Bluebells",
+      image:"https://images.unsplash.com/photo-1526038260759-e8de67460222?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      price:10.00
+    },
+    {
+      id:12,
+      title: "Lilac",
+      image:"https://images.unsplash.com/photo-1526509813677-4d4f89aa6f9a?q=80&w=1524&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      price:15.00
     }
   ];
   

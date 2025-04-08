@@ -55,6 +55,7 @@ module.exports = {
         fontFamily: {
           sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
           display: ['Plus Jakarta Sans', 'sans-serif'],
+          cursive: ['Dancing Script', 'cursive'],
         },
         
         // Custom spacing

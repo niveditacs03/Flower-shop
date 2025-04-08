@@ -21,12 +21,6 @@ const Card = ({ title, price, image, isAdded, toggleItem, handleBuyNow }) => {
           {isAdded ? "✅ Added to Cart" : "Add to Cart"}
         </button>
 
-        <button
-          onClick={handleBuyNow}
-          className="mt-1 ml-2 px-4 py-2 text-xs rounded-full bg-pink-500 text-white hover:bg-pink-600 transition duration-300 cursor-pointer"
-        >
-          Buy Now
-        </button>
       </div>
     </div>
   );

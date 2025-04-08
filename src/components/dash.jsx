@@ -4,8 +4,14 @@ const Dashboard = () => {
   return (
     <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden">
       <nav className="bg-purple-600 text-white p-4 flex justify-between items-center shadow-xl h-20">
-        <h1 className="text-2xl font-bold">🌸 My Flower Shop</h1>
-        <ul className="flex space-x-6 text-md font-medium mr-10">
+        <h1
+          className="text-5xl font-bold"
+          style={{ fontFamily: "'Dancing Script', cursive" }}
+        >
+          🌸 My Flower Shop
+        </h1>
+
+        <ul className="flex space-x-6 text-md font-bold mr-10">
           {["Home", "About Us", "Cart", "Contact"].map((item, index) => (
             <li
               key={index}
@@ -45,4 +51,4 @@ const Dashboard = () => {
     </div>
   );
 };
-export default Dashboard
+export default Dashboard;
