@@ -27,12 +27,13 @@ const RenderCard = () => {
 
   const getTotalPrice = () => {
     const total = cartItems.reduce((sum, flower) => sum + flower.price, 0);
-    if (total === 0) {
+    const formattedTotal = total.toFixed(8);
+    if (formattedTotal === 0) {
       alert("No flowers added to cart");
       return;
     }
 
-    alert(`Total price: ₹${total.toFixed(2)}`);
+    alert(`Total price: ${formattedTotal}ETH`);
 
     const updatedFlowers = availableFlowers.filter(
       (flower) => !cartItems.some((item) => item.id === flower.id)
@@ -80,7 +81,7 @@ const RenderCard = () => {
               isAdded={cartItems.some((item) => item.id === flower.id)}
               toggleItem={() => toggleCart(flower)}
               handleBuyNow={() =>
-                alert(`Buying "${flower.title}" for ₹${flower.price} 💐💸`)
+                alert(`Buying "${flower.title}" for ${flower.price}ETH 💐💸`)
               }
             />
           ))}
@@ -118,7 +119,7 @@ const RenderCard = () => {
                 />
                 <div>
                   <p className="font-semibold text-sm">{item.title}</p>
-                  <p className="text-xs text-gray-600">₹{item.price}</p>
+                  <p className="text-xs text-gray-600">{item.price}ETH</p>
                 </div>
               </div>
             ))}
@@ -126,11 +127,13 @@ const RenderCard = () => {
             {/* 💸 Total and Checkout */}
             <div className="mt-6 border-t pt-4">
               <p className="font-semibold text-base mb-4">
-                Total: ₹
+                Total:{" "}
                 {cartItems
                   .reduce((sum, flower) => sum + flower.price, 0)
-                  .toFixed(2)}
+                  .toFixed(8)}{" "}
+                ETH
               </p>
+
               <button
                 className="w-full bg-purple-600 text-white py-2 rounded-full hover:bg-purple-800 transition-all font-semibold"
                 onClick={getTotalPrice}

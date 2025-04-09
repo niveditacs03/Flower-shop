@@ -1,16 +1,17 @@
 import React from "react";
+import ConnectWallet from "./connectWallet";
 
 const Dashboard = () => {
   return (
     <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden">
-      <nav className="bg-purple-600 text-white p-4 flex justify-between items-center shadow-xl h-20">
+      <nav className="bg-gradient-to-r from-purple-600 to-pink-400 text-white p-4 flex justify-between items-center shadow-xl h-20">
         <h1
-          className="text-5xl font-bold"
+          className="text-7xl font-bold ml-10 mt-8"
           style={{ fontFamily: "'Dancing Script', cursive" }}
         >
-          🌸 My Flower Shop
+          My Flower Shop
         </h1>
-
+       
         <ul className="flex space-x-6 text-md font-bold mr-10">
           {["Home", "About Us", "Cart", "Contact"].map((item, index) => (
             <li
@@ -22,6 +23,7 @@ const Dashboard = () => {
           ))}
         </ul>
       </nav>
+      <ConnectWallet/>
       <main className="p-15 -mt-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[

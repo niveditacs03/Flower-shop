@@ -8,7 +8,7 @@ const Card = ({ title, price, image, isAdded, toggleItem, handleBuyNow }) => {
       </div>
       <div className="text-center p-3 text-sm flex-grow">
         <p className="font-semibold">{title}</p>
-        <p className="font-bold mb-3">₹{price}</p>
+        <p className="font-bold mb-3">{price}ETH</p>
 
         <button
           className={`px-4 py-2 text-xs rounded-full transition duration-300 font-semibold mb-2 ${
