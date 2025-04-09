@@ -32,6 +32,7 @@ const ConnectWallet = () => {
       });
     } else {
       setError("MetaMask is not installed. Please install MetaMask.");
+      <div className="mb-40"></div>
     }
   }, []);
 
