@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Card from "./card";
 import flowersData from "../data";
+import Web3 from "web3";
+
+let web3;
+if (window.ethereum) {
+  web3 = new Web3(window.ethereum);
+}
 
 const RenderCard = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -51,7 +57,7 @@ const RenderCard = () => {
   };
 
   return (
-    <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-120">
+    <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-100">
       <main className="p-8">
         {/* Top-right Reset Button */}
         <div className="flex justify-end items-center mb-10 -mt-5">

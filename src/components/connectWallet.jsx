@@ -36,7 +36,6 @@ const ConnectWallet = () => {
   }, []);
 
   useEffect(() => {
-    // Check if already connected and on login page
     if (localStorage.getItem("metamaskAccount") && location.pathname === "/") {
       navigate("/posts", { replace: true });
     }
@@ -45,16 +44,46 @@ const ConnectWallet = () => {
   const connectWallet = async () => {
     if (web3) {
       try {
+        // Try switching to Sepolia first
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0xaa36a7" }],
+        });
+
+        // Then request account access
         const accounts = await window.ethereum.request({
           method: "eth_requestAccounts",
         });
+
         setAccount(accounts[0]);
         localStorage.setItem("metamaskAccount", accounts[0]);
         setError("");
-        navigate("/posts", { replace: true }); // Use replace instead of push
-      } catch (err) {
-        console.error("Error connecting to MetaMask:", err);
-        setError("Failed to connect wallet.");
+        navigate("/posts", { replace: true });
+      } catch (switchError) {
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0xaa36a7",
+                  chainName: "Sepolia Testnet",
+                  rpcUrls: ["https://rpc.sepolia.org"],
+                  nativeCurrency: {
+                    name: "SepoliaETH",
+                    symbol: "ETH",
+                    decimals: 18,
+                  },
+                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                },
+              ],
+            });
+          } catch (addError) {
+            setError("Failed to add Sepolia testnet.");
+          }
+        } else {
+          setError("Please switch to Sepolia network in MetaMask.");
+        }
       }
     }
   };
@@ -71,8 +100,8 @@ const ConnectWallet = () => {
   return (
     <div className="space-y-3">
       {account ? (
-        <div className="w-full p-3 bg-gradient-to-r from-purple-600 to-pink-400 ">
-          <div className="bg-white/10 backdrop-blur-sm  p-2 flex items-center justify-between">
+        <div className="w-full p-3 bg-gradient-to-r from-purple-600 to-pink-400">
+          <div className="bg-white/10 backdrop-blur-sm p-2 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-pink-400 animate-pulse"></div>
               <span className="text-white text-sm font-medium">
@@ -90,7 +119,7 @@ const ConnectWallet = () => {
       ) : (
         <button
           onClick={connectWallet}
-          className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-400 text-white cursor-pointer  font-medium shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+          className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-400 text-white cursor-pointer font-medium shadow-md hover:bg-pink-500 transition-colors flex items-center justify-center space-x-2"
         >
           <svg
             className="w-5 h-5"
@@ -107,7 +136,7 @@ const ConnectWallet = () => {
         </button>
       )}
       {error && (
-        <div className="w-full p-3 bg-red-50 border border-red-200 ">
+        <div className="w-full p-3 bg-red-50 border border-red-200">
           <p className="text-red-600 text-sm text-center">{error}</p>
         </div>
       )}
