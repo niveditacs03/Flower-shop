@@ -137,60 +137,88 @@ const RenderCard = () => {
       setError("Please connect your wallet first");
       return;
     }
-
+  
+    if (cartItems.length === 0) {
+      setError("No flowers added to cart");
+      return;
+    }
+  
+    // Calculate total ETH as a float
     const totalEth = cartItems.reduce((sum, flower) => {
       const flowerPrice = typeof flower.price === 'string' 
         ? parseFloat(flower.price) 
         : flower.price;
       return sum + flowerPrice;
     }, 0);
-
-    console.log("Raw total ETH:", totalEth);
-
-    if (totalEth === 0) {
-      setError("No flowers added to cart");
+  
+    console.log("Total ETH to send:", totalEth);
+  
+    if (totalEth <= 0) {
+      setError("Invalid total amount");
       return;
     }
-
+  
     setIsProcessing(true);
     setError("");
-
+  
     try {
-      const formattedTotal = totalEth.toFixed(18);
-      console.log("Formatted total ETH:", formattedTotal);
-
-      const totalWei = web3.utils.toWei(formattedTotal, 'ether');
-      console.log("Total Wei:", totalWei);
-      console.log("Total Wei in hex:", web3.utils.toHex(totalWei));
-
-      const balance = await web3.eth.getBalance(account);
-      console.log("Wallet balance (ETH):", web3.utils.fromWei(balance, 'ether'));
-
       const merchantAddress = "0x097ac8d3149A4C75f955c97f4726f208435C1268";
-      const gasLimit = 40000;
+      
+      // Convert the total directly to wei as a string to preserve precision
+      const totalWei = web3.utils.toWei(totalEth.toFixed(6).toString(), 'ether');
 
+      console.log("Total Wei to send:", totalWei);
+      
+      // Check balance first
+      const balance = await web3.eth.getBalance(account);
+      console.log("Wallet balance (Wei):", balance);
+      
+      if (BigInt(balance) < BigInt(totalWei)) {
+        throw new Error("Insufficient funds in your wallet");
+      }
+      
+      // Estimate gas instead of using a fixed amount
+      const gasEstimate = await web3.eth.estimateGas({
+        from: account,
+        to: merchantAddress,
+        value: totalWei
+      }).catch(error => {
+        console.error("Gas estimation failed:", error);
+        // Default to a higher gas limit if estimation fails
+        return 100000;
+      });
+      
+      console.log("Estimated gas:", gasEstimate);
+      
+      // Add 20% buffer to gas estimate
+      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
+      
+      const txParams = {
+        from: account,
+        to: merchantAddress,
+        value: web3.utils.toHex(totalWei),
+        gas: web3.utils.toHex(gasLimit)
+      };
+      
+      console.log("Transaction parameters:", txParams);
+      
       const result = await window.ethereum.request({
         method: 'eth_sendTransaction',
-        params: [{
-          from: account,
-          to: merchantAddress,
-          value: web3.utils.toHex(totalWei),
-          gas: web3.utils.toHex(gasLimit)
-        }],
+        params: [txParams],
       });
-
+  
       console.log("Transaction submitted:", result);
       setTxHash(result);
       setCartItems([]);
-
+  
     } catch (err) {
       console.error("Checkout error:", err);
       setError(`Transaction failed: ${err.message}`);
+
     } finally {
       setIsProcessing(false);
     }
   };
-
   const resetShop = () => {
     setAvailableFlowers(flowersData);
     setCartItems([]);
@@ -201,7 +229,7 @@ const RenderCard = () => {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
   };
   return (
-    <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-120">
+    <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-110">
       <main className="p-8">
         {/* Top Bar with Connect Wallet Button */}
         <div className="flex justify-end items-center mb-10 -mt-5">
