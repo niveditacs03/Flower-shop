@@ -14,28 +14,23 @@ const RenderCard = () => {
   const [txHash, setTxHash] = useState("");
 
   useEffect(() => {
-    // Initialize Web3 and get connected account
     const initWeb3 = async () => {
       if (typeof window.ethereum !== "undefined") {
         try {
           const web3Instance = new Web3(window.ethereum);
           setWeb3(web3Instance);
 
-          // Check if already connected
           const connectedAccount = localStorage.getItem("metamaskAccount");
           if (connectedAccount) {
             setAccount(connectedAccount);
-            
-            // Verify the account is still connected
+
             const accounts = await web3Instance.eth.getAccounts();
             if (!accounts.includes(connectedAccount)) {
-              // Saved account is no longer connected
               setAccount(null);
               localStorage.removeItem("metamaskAccount");
             }
           }
 
-          // Setup event listeners
           window.ethereum.on("accountsChanged", (accounts) => {
             if (accounts.length > 0) {
               setAccount(accounts[0]);
@@ -61,7 +56,6 @@ const RenderCard = () => {
 
     initWeb3();
 
-    // Load available flowers
     const storedAvailable = localStorage.getItem("availableFlowers");
     if (storedAvailable) {
       setAvailableFlowers(JSON.parse(storedAvailable));
@@ -78,14 +72,12 @@ const RenderCard = () => {
     }
 
     try {
-      // Try switching to Sepolia first
       try {
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0xaa36a7" }], // Sepolia chainId
+          params: [{ chainId: "0xaa36a7" }],
         });
       } catch (switchError) {
-        // If the network doesn't exist, add it
         if (switchError.code === 4902) {
           try {
             await window.ethereum.request({
@@ -114,7 +106,6 @@ const RenderCard = () => {
         }
       }
 
-      // Request account access
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
@@ -147,7 +138,15 @@ const RenderCard = () => {
       return;
     }
 
-    const totalEth = cartItems.reduce((sum, flower) => sum + flower.price, 0);
+    const totalEth = cartItems.reduce((sum, flower) => {
+      const flowerPrice = typeof flower.price === 'string' 
+        ? parseFloat(flower.price) 
+        : flower.price;
+      return sum + flowerPrice;
+    }, 0);
+
+    console.log("Raw total ETH:", totalEth);
+
     if (totalEth === 0) {
       setError("No flowers added to cart");
       return;
@@ -155,55 +154,35 @@ const RenderCard = () => {
 
     setIsProcessing(true);
     setError("");
-    setTxHash("");
 
     try {
-      // Convert ETH amount to Wei with proper precision
-      const totalEthStr = totalEth.toString();
-      const totalWei = web3.utils.toWei(totalEthStr, 'ether');
-      
-      // Define recipient address - this should be replaced with your actual recipient address
-      const merchantAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // Example address (Vitalik's)
-      
-      // Verify inputs
-      console.log("Sending transaction:", {
-        from: account,
-        to: merchantAddress,
-        value: totalWei,
-        valueInEth: totalEth,
-      });
-      
-      // Send transaction with proper gas estimation
-      const gasEstimate = await web3.eth.estimateGas({
-        from: account,
-        to: merchantAddress,
-        value: totalWei
-      });
-      
+      const formattedTotal = totalEth.toFixed(18);
+      console.log("Formatted total ETH:", formattedTotal);
+
+      const totalWei = web3.utils.toWei(formattedTotal, 'ether');
+      console.log("Total Wei:", totalWei);
+      console.log("Total Wei in hex:", web3.utils.toHex(totalWei));
+
+      const balance = await web3.eth.getBalance(account);
+      console.log("Wallet balance (ETH):", web3.utils.fromWei(balance, 'ether'));
+
+      const merchantAddress = "0x097ac8d3149A4C75f955c97f4726f208435C1268";
+      const gasLimit = 40000;
+
       const result = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
           from: account,
           to: merchantAddress,
           value: web3.utils.toHex(totalWei),
-          gas: web3.utils.toHex(Math.round(gasEstimate * 1.2)), // 20% buffer for gas
+          gas: web3.utils.toHex(gasLimit)
         }],
       });
-      
+
       console.log("Transaction submitted:", result);
       setTxHash(result);
-      
-      // On success, clear cart and update available items
-      const updatedFlowers = availableFlowers.filter(
-        (flower) => !cartItems.some((item) => item.id === flower.id)
-      );
-
-      setAvailableFlowers(updatedFlowers);
-      localStorage.setItem("availableFlowers", JSON.stringify(updatedFlowers));
       setCartItems([]);
-      
-      // Show success message with transaction link
-      alert(`Payment successful! Transaction: ${result}`);
+
     } catch (err) {
       console.error("Checkout error:", err);
       setError(`Transaction failed: ${err.message}`);
@@ -221,7 +200,6 @@ const RenderCard = () => {
   const shortenAddress = (address) => {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
   };
-
   return (
     <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-120">
       <main className="p-8">
@@ -267,15 +245,15 @@ const RenderCard = () => {
             <p className="text-red-600 text-sm text-center">{error}</p>
           </div>
         )}
-        
+
         {/* Transaction Success Message */}
         {txHash && (
           <div className="w-full p-3 bg-green-50 border border-green-200 mb-6">
             <p className="text-green-600 text-sm text-center">
               Transaction successful! Hash: {txHash.substring(0, 10)}...
-              <a 
-                href={`https://sepolia.etherscan.io/tx/${txHash}`} 
-                target="_blank" 
+              <a
+                href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-500 underline ml-1"
               >
@@ -354,7 +332,7 @@ const RenderCard = () => {
                   <p className="font-semibold text-sm">{item.title}</p>
                   <p className="text-xs text-gray-600">{item.price}ETH</p>
                 </div>
-                <button 
+                <button
                   onClick={() => toggleCart(item)}
                   className="ml-auto text-red-500 hover:text-red-700"
                 >
@@ -368,8 +346,7 @@ const RenderCard = () => {
               <p className="font-semibold text-base mb-4">
                 Total:{" "}
                 {cartItems
-                  .reduce((sum, flower) => sum + flower.price, 0)
-                  .toFixed(8)}{" "}
+                  .reduce((sum, flower) => sum + flower.price, 0)}{" "}
                 ETH
               </p>
 
