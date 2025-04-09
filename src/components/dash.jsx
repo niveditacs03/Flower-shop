@@ -1,10 +1,9 @@
 import React from "react";
-import ConnectWallet from "./connectWallet";
 
 const Dashboard = () => {
   return (
     <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden">
-      <nav className="bg-gradient-to-r from-purple-600 to-pink-400 text-white p-4 flex justify-between items-center shadow-xl h-20">
+      <nav className="bg-gradient-to-r from-purple-600 to-pink-400 text-white p-4 flex justify-between items-center shadow-xl h-35">
         <h1
           className="text-7xl font-bold ml-10 mt-8"
           style={{ fontFamily: "'Dancing Script', cursive" }}
@@ -23,7 +22,6 @@ const Dashboard = () => {
           ))}
         </ul>
       </nav>
-      <ConnectWallet/>
       <main className="p-15 -mt-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[

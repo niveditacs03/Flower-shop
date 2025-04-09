@@ -3,17 +3,65 @@ import Card from "./card";
 import flowersData from "../data";
 import Web3 from "web3";
 
-let web3;
-if (window.ethereum) {
-  web3 = new Web3(window.ethereum);
-}
-
 const RenderCard = () => {
   const [cartItems, setCartItems] = useState([]);
   const [availableFlowers, setAvailableFlowers] = useState([]);
   const [showCart, setShowCart] = useState(false);
+  const [web3, setWeb3] = useState(null);
+  const [account, setAccount] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState("");
+  const [txHash, setTxHash] = useState("");
 
   useEffect(() => {
+    // Initialize Web3 and get connected account
+    const initWeb3 = async () => {
+      if (typeof window.ethereum !== "undefined") {
+        try {
+          const web3Instance = new Web3(window.ethereum);
+          setWeb3(web3Instance);
+
+          // Check if already connected
+          const connectedAccount = localStorage.getItem("metamaskAccount");
+          if (connectedAccount) {
+            setAccount(connectedAccount);
+            
+            // Verify the account is still connected
+            const accounts = await web3Instance.eth.getAccounts();
+            if (!accounts.includes(connectedAccount)) {
+              // Saved account is no longer connected
+              setAccount(null);
+              localStorage.removeItem("metamaskAccount");
+            }
+          }
+
+          // Setup event listeners
+          window.ethereum.on("accountsChanged", (accounts) => {
+            if (accounts.length > 0) {
+              setAccount(accounts[0]);
+              localStorage.setItem("metamaskAccount", accounts[0]);
+            } else {
+              setAccount(null);
+              localStorage.removeItem("metamaskAccount");
+              setError("Wallet disconnected");
+            }
+          });
+
+          window.ethereum.on("chainChanged", () => {
+            window.location.reload();
+          });
+        } catch (err) {
+          console.error("Error initializing web3:", err);
+          setError("Failed to initialize Web3");
+        }
+      } else {
+        setError("MetaMask is not installed. Please install MetaMask.");
+      }
+    };
+
+    initWeb3();
+
+    // Load available flowers
     const storedAvailable = localStorage.getItem("availableFlowers");
     if (storedAvailable) {
       setAvailableFlowers(JSON.parse(storedAvailable));
@@ -23,6 +71,68 @@ const RenderCard = () => {
     }
   }, []);
 
+  const connectWallet = async () => {
+    if (!web3) {
+      setError("Web3 not initialized");
+      return;
+    }
+
+    try {
+      // Try switching to Sepolia first
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0xaa36a7" }], // Sepolia chainId
+        });
+      } catch (switchError) {
+        // If the network doesn't exist, add it
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0xaa36a7",
+                  chainName: "Sepolia Testnet",
+                  rpcUrls: ["https://rpc.sepolia.org"],
+                  nativeCurrency: {
+                    name: "SepoliaETH",
+                    symbol: "ETH",
+                    decimals: 18,
+                  },
+                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                },
+              ],
+            });
+          } catch (addError) {
+            setError("Failed to add Sepolia testnet.");
+            return;
+          }
+        } else {
+          setError("Please switch to Sepolia network in MetaMask.");
+          return;
+        }
+      }
+
+      // Request account access
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
+      setAccount(accounts[0]);
+      localStorage.setItem("metamaskAccount", accounts[0]);
+      setError("");
+    } catch (err) {
+      console.error("Connection error:", err);
+      setError("Failed to connect wallet: " + err.message);
+    }
+  };
+
+  const disconnectWallet = () => {
+    setAccount(null);
+    localStorage.removeItem("metamaskAccount");
+  };
+
   const toggleCart = (flower) => {
     setCartItems((prev) =>
       prev.some((item) => item.id === flower.id)
@@ -31,23 +141,75 @@ const RenderCard = () => {
     );
   };
 
-  const getTotalPrice = () => {
-    const total = cartItems.reduce((sum, flower) => sum + flower.price, 0);
-    const formattedTotal = total.toFixed(8);
-    if (formattedTotal === 0) {
-      alert("No flowers added to cart");
+  const handleCheckout = async () => {
+    if (!web3 || !account) {
+      setError("Please connect your wallet first");
       return;
     }
 
-    alert(`Total price: ${formattedTotal}ETH`);
+    const totalEth = cartItems.reduce((sum, flower) => sum + flower.price, 0);
+    if (totalEth === 0) {
+      setError("No flowers added to cart");
+      return;
+    }
 
-    const updatedFlowers = availableFlowers.filter(
-      (flower) => !cartItems.some((item) => item.id === flower.id)
-    );
+    setIsProcessing(true);
+    setError("");
+    setTxHash("");
 
-    setAvailableFlowers(updatedFlowers);
-    localStorage.setItem("availableFlowers", JSON.stringify(updatedFlowers));
-    setCartItems([]);
+    try {
+      // Convert ETH amount to Wei with proper precision
+      const totalEthStr = totalEth.toString();
+      const totalWei = web3.utils.toWei(totalEthStr, 'ether');
+      
+      // Define recipient address - this should be replaced with your actual recipient address
+      const merchantAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // Example address (Vitalik's)
+      
+      // Verify inputs
+      console.log("Sending transaction:", {
+        from: account,
+        to: merchantAddress,
+        value: totalWei,
+        valueInEth: totalEth,
+      });
+      
+      // Send transaction with proper gas estimation
+      const gasEstimate = await web3.eth.estimateGas({
+        from: account,
+        to: merchantAddress,
+        value: totalWei
+      });
+      
+      const result = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: account,
+          to: merchantAddress,
+          value: web3.utils.toHex(totalWei),
+          gas: web3.utils.toHex(Math.round(gasEstimate * 1.2)), // 20% buffer for gas
+        }],
+      });
+      
+      console.log("Transaction submitted:", result);
+      setTxHash(result);
+      
+      // On success, clear cart and update available items
+      const updatedFlowers = availableFlowers.filter(
+        (flower) => !cartItems.some((item) => item.id === flower.id)
+      );
+
+      setAvailableFlowers(updatedFlowers);
+      localStorage.setItem("availableFlowers", JSON.stringify(updatedFlowers));
+      setCartItems([]);
+      
+      // Show success message with transaction link
+      alert(`Payment successful! Transaction: ${result}`);
+    } catch (err) {
+      console.error("Checkout error:", err);
+      setError(`Transaction failed: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const resetShop = () => {
@@ -56,16 +218,80 @@ const RenderCard = () => {
     localStorage.setItem("availableFlowers", JSON.stringify(flowersData));
   };
 
+  const shortenAddress = (address) => {
+    return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
+  };
+
   return (
-    <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-100">
+    <div className="bg-purple-50 text-gray-800 font-sans min-h-screen relative overflow-hidden -mt-120">
       <main className="p-8">
-        {/* Top-right Reset Button */}
+        {/* Top Bar with Connect Wallet Button */}
         <div className="flex justify-end items-center mb-10 -mt-5">
+          {account ? (
+            <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-400 inline-flex items-center space-x-2 rounded">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-white text-sm font-medium">
+                {shortenAddress(account)}
+              </span>
+              <button
+                onClick={disconnectWallet}
+                className="text-white/80 hover:text-white text-sm transition-colors cursor-pointer ml-2"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={connectWallet}
+              className="py-2 px-4 bg-gradient-to-r from-purple-600 to-pink-400 text-white cursor-pointer font-medium shadow-md hover:bg-pink-500 transition-colors flex items-center rounded space-x-2"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              <span>Connect Wallet</span>
+            </button>
+          )}
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="w-full p-3 bg-red-50 border border-red-200 mb-6">
+            <p className="text-red-600 text-sm text-center">{error}</p>
+          </div>
+        )}
+        
+        {/* Transaction Success Message */}
+        {txHash && (
+          <div className="w-full p-3 bg-green-50 border border-green-200 mb-6">
+            <p className="text-green-600 text-sm text-center">
+              Transaction successful! Hash: {txHash.substring(0, 10)}...
+              <a 
+                href={`https://sepolia.etherscan.io/tx/${txHash}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-500 underline ml-1"
+              >
+                View on Etherscan
+              </a>
+            </p>
+          </div>
+        )}
+
+        {/* 💫 Floating Reset Button */}
+        <div className="fixed bottom-24 right-6 z-40">
           <button
             className="bg-pink-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-pink-700 transition-all font-semibold"
             onClick={resetShop}
           >
-            Reset Shop
+            Reset Shop 🔄
           </button>
         </div>
 
@@ -86,9 +312,10 @@ const RenderCard = () => {
               {...flower}
               isAdded={cartItems.some((item) => item.id === flower.id)}
               toggleItem={() => toggleCart(flower)}
-              handleBuyNow={() =>
-                alert(`Buying "${flower.title}" for ${flower.price}ETH 💐💸`)
-              }
+              handleBuyNow={() => {
+                toggleCart(flower);
+                setShowCart(true);
+              }}
             />
           ))}
         </div>
@@ -127,6 +354,12 @@ const RenderCard = () => {
                   <p className="font-semibold text-sm">{item.title}</p>
                   <p className="text-xs text-gray-600">{item.price}ETH</p>
                 </div>
+                <button 
+                  onClick={() => toggleCart(item)}
+                  className="ml-auto text-red-500 hover:text-red-700"
+                >
+                  ✕
+                </button>
               </div>
             ))}
 
@@ -141,10 +374,19 @@ const RenderCard = () => {
               </p>
 
               <button
-                className="w-full bg-purple-600 text-white py-2 rounded-full hover:bg-purple-800 transition-all font-semibold"
-                onClick={getTotalPrice}
+                className={`w-full py-2 rounded-full font-semibold ${
+                  isProcessing || !account
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-purple-600 hover:bg-purple-800"
+                } text-white transition-all`}
+                onClick={handleCheckout}
+                disabled={isProcessing || !account}
               >
-                Checkout Now 💐
+                {isProcessing
+                  ? "Processing..."
+                  : !account
+                  ? "Connect Wallet First"
+                  : "Checkout Now 💸"}
               </button>
             </div>
           </>
