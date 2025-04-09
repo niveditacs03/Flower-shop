@@ -132,6 +132,9 @@ const RenderCard = () => {
     );
   };
 
+
+
+
   const handleCheckout = async () => {
     if (!web3 || !account) {
       setError("Please connect your wallet first");
@@ -143,82 +146,103 @@ const RenderCard = () => {
       return;
     }
   
-    // Calculate total ETH as a float
-    const totalEth = cartItems.reduce((sum, flower) => {
-      const flowerPrice = typeof flower.price === 'string' 
-        ? parseFloat(flower.price) 
-        : flower.price;
-      return sum + flowerPrice;
-    }, 0);
+    try {
+      const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chainIdHex !== '0xaa36a7') {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0xaa36a7' }], // Sepolia
+          });
+        } catch (switchError) {
+          if (switchError.code === 4902) {
+            setError("Sepolia network is not available in your MetaMask. Please add it manually.");
+          } else {
+            setError("Failed to switch to Sepolia: " + switchError.message);
+          }
+          return;
+        }
+      }
+    } catch (err) {
+      setError("Failed to verify network: " + err.message);
+      return;
+    }
   
-    console.log("Total ETH to send:", totalEth);
-  
+    const totalEth = cartItems.reduce((sum, flower) => sum + parseFloat(flower.price), 0);
     if (totalEth <= 0) {
       setError("Invalid total amount");
       return;
     }
   
+    // 🌸 Confirmation pop-up
+    const confirm = window.confirm(`You’re about to buy flowers for ${totalEth} ETH. Do you want to proceed?`);
+    if (!confirm) {
+      return; // User canceled
+    }
+  
+    const merchantAddress = "0x097ac8d3149A4C75f955c97f4726f208435C1268";
+    const totalWei = web3.utils.toWei(totalEth.toFixed(6), "ether");
+  
     setIsProcessing(true);
     setError("");
   
     try {
-      const merchantAddress = "0x097ac8d3149A4C75f955c97f4726f208435C1268";
-      
-      // Convert the total directly to wei as a string to preserve precision
-      const totalWei = web3.utils.toWei(totalEth.toFixed(6).toString(), 'ether');
-
-      console.log("Total Wei to send:", totalWei);
-      
-      // Check balance first
-      const balance = await web3.eth.getBalance(account);
-      console.log("Wallet balance (Wei):", balance);
-      
-      if (BigInt(balance) < BigInt(totalWei)) {
-        throw new Error("Insufficient funds in your wallet");
-      }
-      
-      // Estimate gas instead of using a fixed amount
+      const balanceWei = await web3.eth.getBalance(account);
+      const gasPrice = await web3.eth.getGasPrice();
+  
       const gasEstimate = await web3.eth.estimateGas({
         from: account,
         to: merchantAddress,
         value: totalWei
-      }).catch(error => {
-        console.error("Gas estimation failed:", error);
-        // Default to a higher gas limit if estimation fails
-        return 100000;
       });
-      
-      console.log("Estimated gas:", gasEstimate);
-      
-      // Add 20% buffer to gas estimate
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.2);
-      
+  
+      const gasLimit = Math.ceil(Number(gasEstimate) * 1.1);
+      const gasCost = BigInt(gasLimit) * BigInt(gasPrice);
+  
+      const totalWeiBigInt = BigInt(totalWei);
+      const balanceBigInt = BigInt(balanceWei);
+  
+      if (balanceBigInt < totalWeiBigInt + gasCost) {
+        throw new Error("Insufficient funds for flower cost + gas");
+      }
+  
       const txParams = {
         from: account,
         to: merchantAddress,
         value: web3.utils.toHex(totalWei),
-        gas: web3.utils.toHex(gasLimit)
+        gas: web3.utils.toHex(gasLimit),
       };
-      
-      console.log("Transaction parameters:", txParams);
-      
-      const result = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [txParams],
+  
+      try {
+        const block = await web3.eth.getBlock("latest");
+        const baseFee = BigInt(block.baseFeePerGas);
+        const priorityFee = BigInt(web3.utils.toWei("1.5", "gwei"));
+        const maxFeePerGas = baseFee * 2n + priorityFee;
+  
+        txParams.maxFeePerGas = web3.utils.toHex(maxFeePerGas);
+        txParams.maxPriorityFeePerGas = web3.utils.toHex(priorityFee);
+      } catch (e) {
+        txParams.gasPrice = web3.utils.toHex(gasPrice);
+      }
+  
+      const txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [txParams]
       });
   
-      console.log("Transaction submitted:", result);
-      setTxHash(result);
+      console.log("Transaction hash:", txHash);
+      setTxHash(txHash);
       setCartItems([]);
-  
     } catch (err) {
       console.error("Checkout error:", err);
       setError(`Transaction failed: ${err.message}`);
-
     } finally {
       setIsProcessing(false);
     }
   };
+  
+  
+  
   const resetShop = () => {
     setAvailableFlowers(flowersData);
     setCartItems([]);
