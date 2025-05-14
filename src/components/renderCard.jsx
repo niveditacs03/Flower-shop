@@ -134,113 +134,57 @@ const RenderCard = () => {
 
 
 
+const handleCheckout = async () => {
+  if (cartItems.length === 0) {
+    alert("Your cart is empty!");
+    return;
+  }
 
-  const handleCheckout = async () => {
-    if (!web3 || !account) {
-      setError("Please connect your wallet first");
-      return;
-    }
-  
-    if (cartItems.length === 0) {
-      setError("No flowers added to cart");
-      return;
-    }
-  
-    try {
-      const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
-      if (chainIdHex !== '0xaa36a7') {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }], // Sepolia
-          });
-        } catch (switchError) {
-          if (switchError.code === 4902) {
-            setError("Sepolia network is not available in your MetaMask. Please add it manually.");
-          } else {
-            setError("Failed to switch to Sepolia: " + switchError.message);
-          }
-          return;
-        }
-      }
-    } catch (err) {
-      setError("Failed to verify network: " + err.message);
-      return;
-    }
-  
+  if (!account) {
+    alert("Please connect your wallet first!");
+    return;
+  }
+
+  try {
+    // Step 1: Calculate total ETH (as a number)
     const totalEth = cartItems.reduce((sum, flower) => sum + parseFloat(flower.price), 0);
-    if (totalEth <= 0) {
-      setError("Invalid total amount");
-      return;
-    }
-  
-    // 🌸 Confirmation pop-up
-    const confirm = window.confirm(`You’re about to buy flowers for ${totalEth} ETH. Do you want to proceed?`);
-    if (!confirm) {
-      return; // User canceled
-    }
-  
-    const merchantAddress = "0x097ac8d3149A4C75f955c97f4726f208435C1268";
-    const totalWei = web3.utils.toWei(totalEth.toFixed(6), "ether");
-  
-    setIsProcessing(true);
-    setError("");
-  
-    try {
-      const balanceWei = await web3.eth.getBalance(account);
-      const gasPrice = await web3.eth.getGasPrice();
-  
-      const gasEstimate = await web3.eth.estimateGas({
-        from: account,
-        to: merchantAddress,
-        value: totalWei
-      });
-  
-      const gasLimit = Math.ceil(Number(gasEstimate) * 1.1);
-      const gasCost = BigInt(gasLimit) * BigInt(gasPrice);
-  
-      const totalWeiBigInt = BigInt(totalWei);
-      const balanceBigInt = BigInt(balanceWei);
-  
-      if (balanceBigInt < totalWeiBigInt + gasCost) {
-        throw new Error("Insufficient funds for flower cost + gas");
-      }
-  
-      const txParams = {
-        from: account,
-        to: merchantAddress,
-        value: web3.utils.toHex(totalWei),
-        gas: web3.utils.toHex(gasLimit),
-      };
-  
-      try {
-        const block = await web3.eth.getBlock("latest");
-        const baseFee = BigInt(block.baseFeePerGas);
-        const priorityFee = BigInt(web3.utils.toWei("1.5", "gwei"));
-        const maxFeePerGas = baseFee * 2n + priorityFee;
-  
-        txParams.maxFeePerGas = web3.utils.toHex(maxFeePerGas);
-        txParams.maxPriorityFeePerGas = web3.utils.toHex(priorityFee);
-      } catch (e) {
-        txParams.gasPrice = web3.utils.toHex(gasPrice);
-      }
-  
-      const txHash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [txParams]
-      });
-  
-      console.log("Transaction hash:", txHash);
-      setTxHash(txHash);
-      setCartItems([]);
-    } catch (err) {
-      console.error("Checkout error:", err);
-      setError(`Transaction failed: ${err.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  
+    
+    // Step 2: Convert ETH to wei using a more precise method
+    const totalWei = web3.utils.toWei(totalEth.toFixed(18), "ether");
+
+    // Step 3: Send transaction
+    const tx = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: account, 
+          to: "0x097ac8d3149A4C75f955c97f4726f208435C1268",
+          value: totalWei,
+          gas: "21000", // standard gas limit for simple ETH transfers
+        },
+      ],
+    });
+
+    setTxHash(tx); // Store transaction hash
+    
+    // Step 4: Update UI after successful transaction
+    const updatedFlowers = availableFlowers.filter(
+      (flower) => !cartItems.some(item => item.id === flower.id)
+    );
+
+    setAvailableFlowers(updatedFlowers);
+    setCartItems([]);
+    localStorage.setItem("availableFlowers", JSON.stringify(updatedFlowers));
+    setIsProcessing(false);
+
+    alert(`Payment of ${totalEth} ETH successful! Thank you for shopping 💐`);
+  } catch (error) {
+    console.error("Transaction failed:", error);
+    setIsProcessing(false);
+    setError("Transaction failed: " + error.message);
+    alert("Oops! Transaction failed. Please try again.");
+  }
+};
   
   
   const resetShop = () => {
